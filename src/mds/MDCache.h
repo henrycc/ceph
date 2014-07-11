@@ -1030,7 +1030,7 @@ public:
     while (n--) ++p;
     return p->second;
   }
-
+  void scrub_dentry(const string& path, Formatter *f, Context *fin);
 };
 
 class C_MDS_RetryRequest : public MDSInternalContext {
