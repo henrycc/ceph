@@ -1031,6 +1031,7 @@ public:
     return p->second;
   }
   void scrub_dentry(const string& path, Formatter *f, Context *fin);
+  void scrub_dentry_work(MDRequestRef& mdr);
 };
 
 class C_MDS_RetryRequest : public MDSInternalContext {
