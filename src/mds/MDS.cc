@@ -310,6 +310,7 @@ void MDS::command_scrub_path(Formatter *f, const string& path)
   int r = scond.wait();
   if (r) { // something went wrong
     f->open_object_section("results");
+    // TODO: this should be dump_int, and it needs to be printed in dump_validation_results too
     f->dump_stream("failure_code") << r;
     f->close_section(); // results
   }
