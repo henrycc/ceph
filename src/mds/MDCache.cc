@@ -11541,3 +11541,28 @@ void MDCache::scrub_dentry_work(MDRequestRef& mdr)
   in->validate_disk_state(&finisher->results, finisher);
   return;
 }
+
+void MDCache::flush_dentry(const string& path, Context *fin)
+{
+  dout(10) << "flush_dentry " << path << dendl;
+  MDRequestRef mdr = request_start_internal(CEPH_MDS_OP_FLUSH);
+  filepath fp(path.c_str());
+  mdr->set_filepath(fp);
+  mdr->internal_op_finish = fin;
+  flush_dentry_work(mdr);
+}
+
+void MDCache::flush_dentry_work(MDRequestRef& mdr)
+{
+  set<SimpleLock*> rdlocks, wrlocks, xlocks;
+  CInode *in = mds->server->rdlock_path_pin_ref(mdr, 0, rdlocks, true);
+  if (NULL == in)
+    return;
+
+  // TODO: Is this necessary? Fix it if so
+  assert(in->is_auth());
+  bool locked = mds->locker->acquire_locks(mdr, rdlocks, wrlocks, xlocks);
+  if (!locked)
+    return;
+  in->flush(new MDSInternalContextWrapper(mds,mdr->internal_op_finish));
+}
