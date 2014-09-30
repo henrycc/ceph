@@ -680,6 +680,8 @@ bool AuthMonitor::prepare_command(MMonCommand *m)
   vector<string>caps_vec;
   string entity_name;
   EntityName entity;
+  // obtained from caps vector
+  bool force = false;
 
   cmd_getval(g_ceph_context, cmdmap, "prefix", prefix);
 
@@ -694,6 +696,10 @@ bool AuthMonitor::prepare_command(MMonCommand *m)
   }
 
   cmd_getval(g_ceph_context, cmdmap, "caps", caps_vec);
+  if (caps_vec.size() > 0 && caps_vec.back() == "--force") {
+    force = true;
+    caps_vec.pop_back();
+  }
   if ((caps_vec.size() % 2) != 0) {
     ss << "bad capabilities request; odd number of arguments";
     err = -EINVAL;
@@ -859,7 +865,7 @@ bool AuthMonitor::prepare_command(MMonCommand *m)
 	     !entity_name.empty()) {
     // auth get-or-create <name> [mon osdcapa osd osdcapb ...]
 
-    if (!valid_caps(caps_vec, &ss)) {
+    if (!force && !valid_caps(caps_vec, &ss)) {
       err = -EINVAL;
       goto done;
     }
@@ -957,7 +963,7 @@ bool AuthMonitor::prepare_command(MMonCommand *m)
       goto done;
     }
 
-    if (!valid_caps(caps_vec, &ss)) {
+    if (!force && !valid_caps(caps_vec, &ss)) {
       err = -EINVAL;
       goto done;
     }

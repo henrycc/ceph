@@ -172,17 +172,22 @@ COMMAND("auth add " \
 COMMAND("auth get-or-create-key " \
 	"name=entity,type=CephString " \
 	"name=caps,type=CephString,n=N,req=false", \
-	"get, or add, key for <name> from system/caps pairs specified in the command.  If key already exists, any given caps must match the existing caps for that key.", \
+	"get, or add, key for <name> from system/caps pairs specified in the " \
+        "command.  If key already exists, any given caps must match the " \
+        "existing caps for that key (use --force to skip caps validation)", \
 	"auth", "rwx", "cli,rest")
 COMMAND("auth get-or-create " \
 	"name=entity,type=CephString " \
 	"name=caps,type=CephString,n=N,req=false", \
-	"add auth info for <entity> from input file, or random key if no input given, and/or any caps specified in the command", \
+	"add auth info for <entity> from input file, or random key if no input " \
+        "is given, and/or any caps specified in the command " \
+        "(use --force to skip caps validation)", \
 	"auth", "rwx", "cli,rest")
 COMMAND("auth caps " \
 	"name=entity,type=CephString " \
-	"name=caps,type=CephString,n=N", \
-	"update caps for <name> from caps specified in the command", \
+	"name=caps,type=CephString,n=N ", \
+	"update caps for <name> from caps specified in the command " \
+        "(use --force to skip caps validation)", \
 	"auth", "rwx", "cli,rest")
 COMMAND("auth del " \
 	"name=entity,type=CephString", \
