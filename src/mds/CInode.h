@@ -888,6 +888,7 @@ public:
       int ondisk_read_retval;
       T ondisk_value;
       T memory_value;
+      std::stringstream error_str;
       member_status() : checked(false), passed(false),
           ondisk_read_retval(0) {}
     };

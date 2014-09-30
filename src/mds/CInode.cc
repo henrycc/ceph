@@ -3591,8 +3591,10 @@ void CInode::validate_disk_state(CInode::validated_data *results,
       for (map<frag_t,CDir*>::iterator p = in->dirfrags.begin();
           p != in->dirfrags.end();
           ++p) {
-        assert(p->second->is_complete());
-        // TODO: report failure of this instead of asserting
+        if (!p->second->is_complete()) {
+          results->raw_rstats.error_str << "dirfrag is INCOMPLETE despite fetching; probably too large compared to MDS cache size?\n";
+          return true;
+        }
         assert(p->second->check_rstats());
         sub_info.add(p->second->fnode.accounted_rstat);
       }
@@ -3630,6 +3632,7 @@ void CInode::dump_validation_results(const validated_data& results,
       f->dump_int("read_ret_val", results.backtrace.ondisk_read_retval);
       f->dump_stream("ondisk_value") << results.backtrace.ondisk_value;
       f->dump_stream("memoryvalue") << results.backtrace.memory_value;
+      f->dump_stream("error_str") << results.backtrace.error_str;
     }
     f->close_section(); // backtrace
     f->open_object_section("raw_rstats");
@@ -3639,6 +3642,7 @@ void CInode::dump_validation_results(const validated_data& results,
       f->dump_int("read_ret_val", results.raw_rstats.ondisk_read_retval);
       f->dump_stream("ondisk_value") << results.raw_rstats.ondisk_value;
       f->dump_stream("memory_value") << results.raw_rstats.memory_value;
+      f->dump_stream("error_str") << results.raw_rstats.error_str;
     }
     f->close_section(); // raw_rstats
   }
