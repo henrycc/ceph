@@ -357,6 +357,35 @@ function fail_all_mds()
   done
 }
 
+function test_mds_tell()
+{
+  # Test injectargs by GID
+  old_mds_gids=`ceph mds dump | grep up: | while read line ; do echo $line | awk '{print substr($1, 0, length($1)-1);}' ; done`
+  echo Old GIDs: $old_mds_gids
+
+  for mds_gid in $old_mds_gids ; do
+      ceph tell mds.[gid=$mds_gid] injectargs "--debug-mds 20"
+  done
+
+  # Test respawn by rank
+  ceph tell mds.0 respawn
+  new_mds_gids=$old_mds_gids
+  while [ $new_mds_gids -eq $old_mds_gids ] ; do
+      sleep 5
+      new_mds_gids=`ceph mds dump | grep up: | while read line ; do echo $line | awk '{print substr($1, 0, length($1)-1);}' ; done`
+  done
+  echo New GIDs: $new_mds_gids
+
+  # Test respawn by ID
+  ceph tell mds.[id=a] respawn
+  new_mds_gids=$old_mds_gids
+  while [ $new_mds_gids -eq $old_mds_gids ] ; do
+      sleep 5
+      new_mds_gids=`ceph mds dump | grep up: | while read line ; do echo $line | awk '{print substr($1, 0, length($1)-1);}' ; done`
+  done
+  echo New GIDs: $new_mds_gids
+}
+
 function test_mon_mds()
 {
   existing_fs=$(ceph fs ls | grep "name:" | awk '{print substr($2,0,length($2)-1);}')
@@ -1061,6 +1090,7 @@ TESTS=(
   mon_osd_misc
   mon_heap_profiler
   osd_bench
+  mds_tell
 )
 
 #
