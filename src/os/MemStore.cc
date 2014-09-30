@@ -221,11 +221,29 @@ int MemStore::mkfs()
 int MemStore::statfs(struct statfs *st)
 {
   dout(10) << __func__ << dendl;
-  // make some shit up.  these are the only fields that matter.
   st->f_bsize = 1024;
-  st->f_blocks = 1000000;
-  st->f_bfree =  1000000;
-  st->f_bavail = 1000000;
+
+  // Device size is a configured constant
+  st->f_blocks = g_conf->memstore_device_bytes / st->f_bsize;
+
+  // Free space derived from size of objects in store
+  uint64_t used_bytes = 0;
+  RWLock::RLocker l(coll_lock);
+  for (ceph::unordered_map<coll_t,CollectionRef>::iterator p = coll_map.begin();
+      p != coll_map.end();
+      ++p) {
+    RWLock::WLocker l(p->second->lock);
+    for (map<ghobject_t,ObjectRef>::iterator q = p->second->object_map.begin();
+        q != p->second->object_map.end();
+        ++q) {
+      if (q->second) {
+        used_bytes += q->second->data.length();
+      }
+    }
+  }
+  dout(10) << __func__ << ": used_bytes: " << used_bytes << "/" << g_conf->memstore_device_bytes << dendl;
+  st->f_bfree = st->f_bavail = (st->f_blocks - used_bytes / st->f_bsize);
+
   return 0;
 }
 
