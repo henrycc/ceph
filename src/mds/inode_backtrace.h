@@ -75,7 +75,7 @@ struct inode_backtrace_t {
    * @returns 1 if we are newer than the other, 0 if equal, -1 if older
    */
   int compare(const inode_backtrace_t& other,
-               bool *equivalent, bool *divergent);
+               bool *equivalent, bool *divergent) const;
 };
 WRITE_CLASS_ENCODER(inode_backtrace_t)
 

@@ -119,7 +119,7 @@ void inode_backtrace_t::generate_test_instances(list<inode_backtrace_t*>& ls)
 }
 
 int inode_backtrace_t::compare(const inode_backtrace_t& other,
-                               bool *equivalent, bool *divergent)
+                               bool *equivalent, bool *divergent) const
 {
   int min_size = MIN(ancestors.size(),other.ancestors.size());
   *divergent = false;
