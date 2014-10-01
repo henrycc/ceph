@@ -898,6 +898,7 @@ public:
 
     member_status<nest_info_t> raw_rstats;
     member_status<inode_backtrace_t> backtrace;
+    member_status<inode_t> inode;
     validated_data() : performed_validation(false),
         passed_validation(false) {}
   };

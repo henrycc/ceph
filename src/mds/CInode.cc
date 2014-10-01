@@ -3479,10 +3479,12 @@ void CInode::validate_disk_state(CInode::validated_data *results,
     CInode *in;
     CInode::validated_data *results;
     bufferlist bl;
+    CInode *shadow_in;
 
     enum {
       START = 0,
       BACKTRACE,
+      INODE,
       DIRFRAGS
     };
 
@@ -3491,15 +3493,19 @@ void CInode::validate_disk_state(CInode::validated_data *results,
                            Context *fin) :
                              Continuation(fin),
                              in(i),
-                             results(data_r)
-    {
+                             results(data_r),
+                             shadow_in(NULL) {
       set_callback(START, static_cast<Continuation::stagePtr>(&ValidationContinuation::_start));
       set_callback(BACKTRACE, static_cast<Continuation::stagePtr>(&ValidationContinuation::_backtrace));
+      set_callback(INODE, static_cast<Continuation::stagePtr>(&ValidationContinuation::_inode_disk));
       set_callback(DIRFRAGS, static_cast<Continuation::stagePtr>(&ValidationContinuation::_dirfrags));
     }
 
-    bool _start(int rval, int stage)
-    {
+    ~ValidationContinuation() {
+      delete shadow_in;
+    }
+
+    bool _start(int rval, int stage) {
       if (in->is_dirty()) {
         MDCache *mdcache = in->mdcache;
         inode_t& inode = in->inode;
@@ -3507,17 +3513,17 @@ void CInode::validate_disk_state(CInode::validated_data *results,
                  << dendl;
       }
 
+      results->passed_validation = false; // we haven't finished it yet
+
       in->fetch_backtrace(&bl,
                           new C_OnFinisher(get_callback(BACKTRACE),
                                            &in->mdcache->mds->finisher));
       return false;
     }
 
-    bool _backtrace(int rval, int stage)
-    {
+    bool _backtrace(int rval, int stage) {
       // set up basic result reporting and make sure we got the data
       results->performed_validation = true; // at least, some of it!
-      results->passed_validation = false; // we haven't finished it yet
       results->backtrace.checked = true;
       results->backtrace.ondisk_read_retval = rval;
       results->backtrace.passed = false; // we'll set it true if we make it
@@ -3550,12 +3556,55 @@ void CInode::validate_disk_state(CInode::validated_data *results,
       }
 
       // quit if we're a file, or kick off directory checks otherwise
+      // TODO: validate on-disk inode for non-base directories
       if (in->is_file() || in->is_symlink()) {
         results->passed_validation = true;
         return true;
       }
 
+      return validate_directory_data();
+    }
+
+    bool validate_directory_data() {
       assert(in->is_dir());
+
+      if (in->is_base()) {
+        shadow_in = new CInode(in->mdcache);
+        in->mdcache->create_unlinked_system_inode(shadow_in,
+                                                  in->inode.ino,
+                                                  in->inode.mode);
+        shadow_in->fetch(new MDSInternalContextWrapper(in->mdcache->mds,
+                                                       get_callback(INODE)));
+        return false;
+      } else {
+        return fetch_dirfrag_rstats();
+      }
+    }
+
+    bool _inode_disk(int rval, int stage) {
+      results->inode.checked = true;
+      results->inode.ondisk_read_retval = rval;
+      results->inode.passed = false;
+      results->inode.ondisk_value = shadow_in->inode;
+      results->inode.memory_value = in->inode;
+
+      inode_t& si = shadow_in->inode;
+      inode_t& i = in->inode;
+      if (si.version > i.version) {
+        // uh, what?
+        results->inode.error_str << "On-disk inode is newer than in-memory one!";
+        return true;
+      } else {
+        bool divergent = false;
+        int r = i.compare(si, &divergent);
+        results->inode.passed = !divergent && r >= 0;
+        if (!results->inode.passed)
+          return true;
+      }
+      return fetch_dirfrag_rstats();
+    }
+
+    bool fetch_dirfrag_rstats() {
       MDSGatherBuilder gather(g_ceph_context);
       for (map<frag_t,CDir*>::iterator p = in->dirfrags.begin();
            p != in->dirfrags.end();
@@ -3571,11 +3620,9 @@ void CInode::validate_disk_state(CInode::validated_data *results,
       } else {
         return immediate(DIRFRAGS, 0);
       }
-      // TODO: ugh lack of actually checking disk state :(
     }
 
-    bool _dirfrags(int rval, int stage)
-    {
+    bool _dirfrags(int rval, int stage) {
       // basic reporting setup
       results->raw_rstats.checked = true;
       results->raw_rstats.ondisk_read_retval = rval;
@@ -3583,8 +3630,6 @@ void CInode::validate_disk_state(CInode::validated_data *results,
       if (rval != 0) {
         return true;
       }
-
-      // TODO: check the actual inode didn't change, or somehow validate it
 
       // check each dirfrag...
       nest_info_t& sub_info = results->raw_rstats.ondisk_value;
