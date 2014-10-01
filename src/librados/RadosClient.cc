@@ -229,6 +229,7 @@ int librados::RadosClient::connect()
   if (!objecter)
     goto out;
   objecter->set_balanced_budget();
+  objecter->unset_honor_osdmap_full(); // hack!
 
   monclient.set_messenger(messenger);
 
