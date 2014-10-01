@@ -149,10 +149,11 @@ class MDS : public Dispatcher, public md_config_obs_t {
 
  private:
   ceph::heartbeat_handle_d *hb;  // Heartbeat for threads using mds_lock
-  void heartbeat_reset();
   Beacon  beacon;
   void set_want_state(MDSMap::DaemonState newstate);
  public:
+
+  void heartbeat_reset();
   utime_t get_laggy_until() {return beacon.get_laggy_until();}
 
   AuthAuthorizeHandlerRegistry *authorize_handler_cluster_registry;

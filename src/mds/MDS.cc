@@ -1911,8 +1911,13 @@ bool MDS::handle_core_message(Message *m)
     // OSD
   case CEPH_MSG_OSD_MAP:
     ALLOW_MESSAGES_FROM(CEPH_ENTITY_TYPE_MON | CEPH_ENTITY_TYPE_OSD);
-    if (is_active() && snapserver)
+
+    if (is_active() && snapserver) {
       snapserver->check_osd_map(true);
+    }
+
+    server->handle_osd_map();
+
     break;
 
   default:

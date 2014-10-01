@@ -1265,6 +1265,30 @@ void Server::handle_client_request(MClientRequest *req)
   return;
 }
 
+void Server::handle_osd_map()
+{
+  const OSDMap *osdmap = mds->objecter->get_osdmap_read();
+  if (is_full && !osdmap->test_flag(CEPH_OSDMAP_FULL)) {
+    // We were full, now we are not.
+    dout(4) << __func__ << ": no longer full, dequeing client_requests" << dendl;
+    is_full = false;
+    for (std::list<MDRequestRef>::iterator i = full_queue.begin(); i != full_queue.end(); ++i) {
+      dispatch_client_request(*i);
+      mds->heartbeat_reset();
+    }
+
+    // FIXME:
+    //  * are we sure something can't get put into the queue more than once?
+    //  * we might wait til we are 1 byte below the full threshold and then
+    //    push through 100000 queued ops: should throttle that somehow.
+
+  } else {
+    is_full = osdmap->test_flag(CEPH_OSDMAP_FULL);
+  }
+
+  mds->objecter->put_osdmap_read();
+}
+
 void Server::dispatch_client_request(MDRequestRef& mdr)
 {
   MClientRequest *req = mdr->client_request;
@@ -1276,6 +1300,30 @@ void Server::dispatch_client_request(MDRequestRef& mdr)
   // we shouldn't be waiting on anyone.
   assert(mdr->more()->waiting_on_slave.empty());
   
+  if (is_full) {
+    dout(20) << __func__ << ": I am full, conditionally dispatching" << dendl;
+    if (req->get_op() == CEPH_MDS_OP_SETATTR ||
+        req->get_op() == CEPH_MDS_OP_SETLAYOUT ||
+        req->get_op() == CEPH_MDS_OP_SETDIRLAYOUT ||
+        req->get_op() == CEPH_MDS_OP_SETLAYOUT ||
+        req->get_op() == CEPH_MDS_OP_RMXATTR ||
+        req->get_op() == CEPH_MDS_OP_SETFILELOCK ||
+        req->get_op() == CEPH_MDS_OP_CREATE ||
+        req->get_op() == CEPH_MDS_OP_OPEN ||
+        req->get_op() == CEPH_MDS_OP_LINK ||
+        req->get_op() == CEPH_MDS_OP_RENAME ||
+        req->get_op() == CEPH_MDS_OP_SYMLINK ||
+        req->get_op() == CEPH_MDS_OP_MKSNAP) {
+      full_queue.push_back(mdr);
+      dout(20) << __func__ << ": full, blocking op " << ceph_mds_op_name(req->get_op()) << dendl;
+      return;
+    } else {
+      dout(20) << __func__ << ": full, permitting op " << ceph_mds_op_name(req->get_op()) << dendl;
+    }
+  } else {
+    dout(20) << __func__ << ": not full, dispatching" << dendl;
+  }
+
   switch (req->get_op()) {
   case CEPH_MDS_OP_LOOKUPHASH:
   case CEPH_MDS_OP_LOOKUPINO:

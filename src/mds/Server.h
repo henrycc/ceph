@@ -50,6 +50,10 @@ private:
   Messenger *messenger;
   PerfCounters *logger;
 
+  // Requests blocked on OSDMap FULL flag
+  bool is_full;
+  std::list<MDRequestRef> full_queue;
+
 public:
   int failed_reconnects;
 
@@ -73,6 +77,7 @@ public:
   // message handler
   void dispatch(Message *m);
 
+  void handle_osd_map();
 
   // -- sessions and recovery --
   utime_t  reconnect_start;
