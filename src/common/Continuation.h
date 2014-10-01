@@ -36,6 +36,7 @@ class Continuation {
 protected:
   typedef bool (Continuation::*stagePtr)(int r, int n);
   bool immediate(int stage, int r) {
+    assert(!stages_in_flight.count(stage));
     stages_in_flight.insert(stage);
     return _continue_function(r, stage);
   }
