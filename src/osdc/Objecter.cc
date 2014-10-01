@@ -1958,7 +1958,9 @@ bool Objecter::osdmap_full_flag() const
 {
   // Ignore the FULL flag if we are working on behalf of an MDS, in order to permit
   // MDS journal writes for file deletions.
-  return osdmap->test_flag(CEPH_OSDMAP_FULL) && (messenger->get_myname().type() != entity_name_t::TYPE_MDS);
+  return osdmap->test_flag(CEPH_OSDMAP_FULL)
+    && (messenger->get_myname().type() != entity_name_t::TYPE_MDS)
+    && (honor_osdmap_full);
 }
 
 
