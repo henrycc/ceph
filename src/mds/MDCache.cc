@@ -326,9 +326,9 @@ void MDCache::init_layouts()
   }
 }
 
-CInode *MDCache::create_unlinked_system_inode(inodeno_t ino, int mode) const
+void MDCache::create_unlinked_system_inode(CInode *in, inodeno_t ino,
+                                              int mode) const
 {
-  CInode *in = new CInode(this);
   in->inode.ino = ino;
   in->inode.version = 1;
   in->inode.mode = 0500 | mode;
@@ -363,7 +363,8 @@ CInode *MDCache::create_unlinked_system_inode(inodeno_t ino, int mode) const
 CInode *MDCache::create_system_inode(inodeno_t ino, int mode)
 {
   dout(0) << "creating system inode with ino:" << ino << dendl;
-  CInode *in = create_unlinked_system_inode(ino, mode);
+  CInode *in = new CInode(this);
+  create_unlinked_system_inode(in, ino, mode);
   add_inode(in);
   return in;
 }
